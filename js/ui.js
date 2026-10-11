@@ -188,24 +188,12 @@ export function initUI({ stage, rig }) {
   const headModel = $('#head-model');
   HEADS.forEach((h, i) => headModel.add(new Option(h.name, i)));
   headModel.hidden = HEADS.length < 2;
-  headModel.addEventListener('change', async () => {
+  headModel.addEventListener('change', () => {
     const def = HEADS[headModel.value];
     showCredit(def);
-    await stage.loadHeadModel(def);
-    scatterRow.hidden = !stage.hasScattering;
+    stage.loadHeadModel(def);
   });
   showCredit(HEADS[0]);
-
-  // Skin scattering (translucent ears and nose) only exists for heads with baked thickness.
-  const scatterRow = $('#scatter-row');
-  const skinScatter = $('#skin-scatter');
-  const applyScatter = () => {
-    stage.setSkinScattering(Number(skinScatter.value));
-    showValue(skinScatter);
-  };
-  skinScatter.addEventListener('input', applyScatter);
-  applyScatter();
-  scatterRow.hidden = !stage.hasScattering;
 
   // Background (also lights the subject).
   const backgroundSelect = $('#background');
@@ -243,7 +231,7 @@ export function initUI({ stage, rig }) {
   iconsToggle.addEventListener('click', () => {
     iconsVisible = !iconsVisible;
     rig.setGizmos(iconsVisible);
-    iconsToggle.textContent = iconsVisible ? 'Hide light icons' : 'Show light icons';
+    iconsToggle.setAttribute('aria-pressed', iconsVisible);
   });
   $('#camera-reset').addEventListener('click', stage.resetCamera);
 

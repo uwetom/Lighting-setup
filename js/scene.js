@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/GLTFLoader.js';
-import { KTX2Loader } from 'three/addons/KTX2Loader.js';
 import { EXRLoader } from 'three/addons/EXRLoader.js';
-import { MeshoptDecoder } from 'three/addons/meshopt_decoder.module.js';
 import { TeapotGeometry } from 'three/addons/TeapotGeometry.js';
 
 const HEAD_HEIGHT = 2;
@@ -28,7 +26,7 @@ export async function createStage(container, statusEl) {
   controls.enableDamping = true;
   controls.enablePan = false;
   controls.minDistance = 3;
-  controls.maxDistance = 14;
+  controls.maxDistance = 40;
 
   const headPivot = new THREE.Group();
   headPivot.rotation.order = 'YXZ';
@@ -69,10 +67,7 @@ export async function createStage(container, statusEl) {
   contact.visible = false;
   scene.add(contact);
 
-  // Compressed textures (KTX2) and geometry (meshopt) appear in some downloaded models.
-  const gltfLoader = new GLTFLoader()
-    .setKTX2Loader(new KTX2Loader().setTranscoderPath('vendor/three/addons/basis/').detectSupport(renderer))
-    .setMeshoptDecoder(MeshoptDecoder);
+  const gltfLoader = new GLTFLoader();
 
   // Backgrounds also light the subject: the background is prefiltered into scene.environment.
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -229,8 +224,6 @@ export async function createStage(container, statusEl) {
     renderer,
     get headMesh() { return headMesh; },
     get subject() { return subject; },
-    get hasScattering() { return Boolean(headMesh?.userData.scattering); },
-    setSkinScattering: (strength) => { skin.sssAttenuation.value = strength * 0.6; },
     headState,
     setHead,
     loadHeadModel,
@@ -261,7 +254,6 @@ export async function createStage(container, statusEl) {
 
 // Textures are optional: heads without them fall back to the maps embedded in the glb.
 async function loadHead(def, loader) {
-  if (def.wholeScene) return loadObject(def, loader);
   if (def.kind === 'teapot') {
     if (!def.model) return makeTeapot();
     try {
@@ -300,21 +292,6 @@ async function loadHead(def, loader) {
     clearcoatRoughness: 0.4,
   });
 
-  // Baked thickness (tools/make-thickness.mjs) drives the scattering; without it the head stays plain.
-  let scattering = false;
-  if (def.thickness) {
-    try {
-      const values = new Float32Array(await (await fetch(def.thickness)).arrayBuffer());
-      if (values.length === geometry.attributes.position.count) {
-        geometry.setAttribute('thickness', new THREE.BufferAttribute(values, 1));
-        addSkinScattering(material);
-        scattering = true;
-      }
-    } catch (err) {
-      console.warn(`Could not load ${def.thickness}; skipping skin scattering.`, err);
-    }
-  }
-
   geometry.computeBoundingBox();
   const box = geometry.boundingBox;
   const size = box.getSize(new THREE.Vector3());
@@ -325,60 +302,7 @@ async function loadHead(def, loader) {
   mesh.scale.setScalar(scale);
   mesh.position.copy(center).multiplyScalar(-scale);
   mesh.castShadow = mesh.receiveShadow = true;
-  mesh.userData.scattering = scattering;
   return mesh;
-}
-
-// Skin look: fake light transmission through thin parts (ears, nose), after GDC 2011
-// "Approximating Translucency" as used by the three.js subsurface scattering example.
-const skin = {
-  sssColor: { value: new THREE.Color(1, 0.35, 0.2) },
-  sssDistortion: { value: 0.3 },
-  sssPower: { value: 3 },
-  sssScale: { value: 4 },
-  sssAmbient: { value: 0 },
-  sssAttenuation: { value: 0.6 },
-};
-
-function addSkinScattering(material) {
-  material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, skin);
-
-    shader.vertexShader = `attribute float thickness;\nvarying float vThickness;\n${shader.vertexShader}`
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvThickness = thickness;');
-
-    // Scatter the light before its shadow is applied, otherwise the thin part shadows its own back-lit side.
-    const replaceAll = (text, find, replace) => text.split(find).join(replace);
-    let chunk = `vec3 sssLight = vec3( 0.0 );\n${THREE.ShaderChunk.lights_fragment_begin}`;
-    [
-      'getPointLightInfo( pointLight, geometryPosition, directLight );',
-      'getSpotLightInfo( spotLight, geometryPosition, directLight );',
-      'getDirectionalLightInfo( directionalLight, directLight );',
-    ].forEach((call) => { chunk = replaceAll(chunk, call, `${call}\n\t\tsssLight = directLight.color;`); });
-    const direct = 'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );';
-    chunk = replaceAll(chunk, direct, `${direct}\n\t\tRE_Direct_Scattering( directLight.direction, sssLight, material.diffuseColor, geometryNormal, geometryViewDir, reflectedLight );`);
-
-    const pars = `
-      varying float vThickness;
-      uniform vec3 sssColor;
-      uniform float sssDistortion;
-      uniform float sssPower;
-      uniform float sssScale;
-      uniform float sssAmbient;
-      uniform float sssAttenuation;
-      void RE_Direct_Scattering( const in vec3 lightDirection, const in vec3 lightColor, const in vec3 albedo, const in vec3 normal, const in vec3 viewDir, inout ReflectedLight reflectedLight ) {
-        float thin = 1.0 - smoothstep( 0.05, 0.45, vThickness );
-        vec3 halfway = normalize( lightDirection + normal * sssDistortion );
-        float scatter = pow( saturate( dot( viewDir, -halfway ) ), sssPower ) * sssScale;
-        reflectedLight.directDiffuse += ( scatter + sssAmbient ) * thin * sssColor * albedo * sssAttenuation * lightColor;
-      }
-    `;
-
-    shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', `${pars}\nvoid main() {`)
-      .replace('#include <lights_fragment_begin>', chunk);
-  };
-  material.customProgramCacheKey = () => 'skin-sss';
 }
 
 // Loads a whole glb scene, scaled to a fixed height and centred on the pivot.
