@@ -71,16 +71,30 @@ export function setupPlan({ stage, rig }) {
       ctx.lineTo(tx - dx * 2 + dz * 5, ty - dz * 2 - dx * 5);
       ctx.fill();
 
-      if (item.type === 'area') {
+      if (item.type === 'reflector') {
+        // Thin dished disc seen edge-on: a line with round rim caps.
+        const half = 1.63 * K;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(lx - dz * half, ly + dx * half);
+        ctx.lineTo(lx + dz * half, ly - dx * half);
+        ctx.stroke();
+        [-1, 1].forEach((s) => {
+          ctx.beginPath();
+          ctx.arc(lx + s * dz * half, ly - s * dx * half, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else if (item.type === 'area') {
+        const half = 0.8 * K;
         ctx.lineWidth = 5;
         ctx.beginPath();
-        ctx.moveTo(lx - dz * 0.8 * K, ly + dx * 0.8 * K);
-        ctx.lineTo(lx + dz * 0.8 * K, ly - dx * 0.8 * K);
+        ctx.moveTo(lx - dz * half, ly + dx * half);
+        ctx.lineTo(lx + dz * half, ly - dx * half);
         ctx.stroke();
       }
     }
 
-    if (item.type !== 'area') {
+    if (item.type !== 'area' && item.type !== 'reflector') {
       ctx.beginPath();
       ctx.arc(lx, ly, 6, 0, Math.PI * 2);
       ctx.fill();

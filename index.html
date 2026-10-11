@@ -26,13 +26,19 @@
           </g>
         </svg>
       </button>
+      <button type="button" id="snapshot" title="Take snapshot" aria-label="Take snapshot">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 8h3l2-3h6l2 3h3v11H4z"/>
+          <circle cx="12" cy="13" r="3.5"/>
+        </svg>
+      </button>
       <div id="plan">
         <canvas id="plan-canvas" aria-label="Top-down plan of the head and lights"></canvas>
         <button type="button" id="plan-toggle" title="Hide/show plan view" aria-label="Hide/show plan view" aria-controls="plan-canvas" aria-expanded="true">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
-            <circle cx="12" cy="12" r="3"/>
-            <line class="slash" x1="3" y1="21" x2="21" y2="3"/>
+            <rect x="3" y="3" width="18" height="18" rx="3"/>
+            <circle cx="12" cy="12" r="4.5"/>
+            <path d="M12 3v4.5M12 16.5V21M3 12h4.5M16.5 12H21"/>
           </svg>
         </button>
       </div>
@@ -51,35 +57,51 @@
 
       <section>
         <h2>Lights <span id="light-count" class="muted"></span></h2>
-        <div id="light-list"></div>
-        <div class="btn-row">
-          <button type="button" data-add="spot"><span>+</span>Spot</button>
-          <button type="button" data-add="point"><span>+</span>Point</button>
-          <button type="button" data-add="area"><span>+</span>Softbox</button>
-          <button type="button" data-add="sun"><span>+</span>Sun</button>
+        <div class="add-row">
+          <button type="button" data-add="spot" title="Add spot light"><span>+</span>Spot</button>
+          <button type="button" data-add="point" title="Add point light"><span>+</span>Point</button>
+          <button type="button" data-add="area" title="Add softbox"><span>+</span>Softbox</button>
+          <button type="button" data-add="reflector" title="Add reflector (about 50 cm across; bounces light from your other lights)"><span>+</span>Reflector</button>
+          <button type="button" data-add="sun" title="Add sun (only one allowed)"><span>+</span>Sun</button>
         </div>
+        <div id="light-list"></div>
       </section>
 
       <section id="inspector" hidden>
         <h2>Selected light</h2>
+        <label class="row">Name <input type="text" id="l-name" maxlength="30" autocomplete="off"></label>
         <label class="row">Type
-          <select id="l-type">
+          <span class="select-icon">
+            <span class="icon-slot" id="l-type-icon"></span>
+            <select id="l-type">
             <option value="spot">Spot</option>
             <option value="point">Point</option>
             <option value="area">Softbox</option>
+            <option value="reflector">Reflector (50 cm)</option>
             <option value="sun">Sun (parallel rays)</option>
-          </select>
+            </select>
+          </span>
         </label>
         <div class="row">
           <span>Colour</span>
           <details id="l-picker" class="picker">
             <summary><span class="swatch" id="l-swatch"></span><span id="l-colour-text"></span></summary>
             <div class="picker-pop">
-              <input type="color" id="l-color" aria-label="Colour">
-              <div class="temp-title">Colour temperature <output id="l-kelvin-out"></output></div>
-              <input type="range" id="l-kelvin-range" min="1000" max="12000" step="100" aria-label="Colour temperature in kelvin">
-              <div class="chips" id="l-chips"></div>
-              <label class="kelvin-entry">Kelvin <input type="number" id="l-kelvin" min="1000" max="12000" step="100" placeholder="custom"></label>
+              <div id="standard-colour-controls">
+                <input type="color" id="l-color" aria-label="Colour">
+                <div class="temp-title">Colour temperature <output id="l-kelvin-out"></output></div>
+                <input type="range" id="l-kelvin-range" min="1000" max="12000" step="100" aria-label="Colour temperature in kelvin">
+                <div class="chips" id="l-chips"></div>
+                <label class="kelvin-entry">Kelvin <input type="number" id="l-kelvin" min="1000" max="12000" step="100" placeholder="custom"></label>
+              </div>
+              <div id="reflector-colour-controls" hidden>
+                <div class="temp-title">Reflector finish</div>
+                <div class="chips">
+                  <button type="button" class="chip" data-reflector-colour="#ffffff">White</button>
+                  <button type="button" class="chip" data-reflector-colour="#d4af37">Gold</button>
+                  <button type="button" class="chip" data-reflector-colour="#c0c0c0">Silver</button>
+                </div>
+              </div>
             </div>
           </details>
         </div>
@@ -87,8 +109,8 @@
         <label class="row">Azimuth <input type="range" data-key="azimuth" min="-180" max="180" step="1" data-unit="°"><output></output></label>
         <label class="row">Elevation <input type="range" data-key="elevation" min="-80" max="85" step="1" data-unit="°"><output></output></label>
         <label class="row">Distance <input type="range" data-key="distance" min="1.5" max="8" step="0.1"><output></output></label>
-        <label class="row" data-for="spot area sun">Pan <input type="range" data-key="pan" min="-60" max="60" step="1" data-unit="°"><output></output></label>
-        <label class="row" data-for="spot area sun">Tilt <input type="range" data-key="tilt" min="-60" max="60" step="1" data-unit="°"><output></output></label>
+        <label class="row" data-for="spot area reflector sun">Pan <input type="range" data-key="pan" min="-60" max="60" step="1" data-unit="°"><output></output></label>
+        <label class="row" data-for="spot area reflector sun">Tilt <input type="range" data-key="tilt" min="-60" max="60" step="1" data-unit="°"><output></output></label>
         <div class="btn-row">
           <button type="button" id="l-reset">Reset</button>
           <button type="button" id="l-duplicate">Duplicate</button>

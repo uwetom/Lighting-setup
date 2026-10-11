@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import { RectAreaLightUniformsLib } from 'three/addons/RectAreaLightUniformsLib.js';
 
 export const MAX_LIGHTS = 6;
-export const TYPE_LABELS = { spot: 'Spot', point: 'Point', area: 'Softbox', sun: 'Sun' };
+export const TYPE_LABELS = { spot: 'Spot', point: 'Point', area: 'Softbox', reflector: 'Reflector', sun: 'Sun' };
+export const REFLECTOR_COLORS = { White: '#ffffff', Gold: '#d4af37', Silver: '#c0c0c0' };
 
 // Scales the 0-10 UI intensity to each light type's physical units.
-const POWER = { spot: 12, point: 12, area: 3, sun: 0.75 };
+const POWER = { spot: 12, point: 12, area: 6, reflector: 5, sun: 0.75 };
 const UP = new THREE.Vector3(0, 1, 0);
 // The sun's THREE.DirectionalLight sits this far from the subject whatever the marker distance, so shadows never change with it.
 const SUN_DISTANCE = 10;
@@ -23,8 +23,6 @@ const DEFAULTS = {
 };
 
 export function createLightRig(scene) {
-  RectAreaLightUniformsLib.init();
-
   const root = new THREE.Group();
   scene.add(root);
 
@@ -52,8 +50,11 @@ export function createLightRig(scene) {
     let light;
     let geometry;
 
-    if (item.type === 'spot') {
-      light = new THREE.SpotLight(item.color, 1, 0, 0.5, 0.6, 2);
+    if (item.type === 'spot' || item.type === 'area' || item.type === 'reflector') {
+      // Softboxes and reflectors are wide, feathered spots: RectAreaLight casts no shadows, so it lit the nose through the head.
+      const soft = item.type !== 'spot';
+      const angle = { spot: 0.5, area: 0.9, reflector: 1.1 }[item.type];
+      light = new THREE.SpotLight(item.color, 1, 0, angle, soft ? 1 : 0.6, 2);
       light.shadow.mapSize.set(2048, 2048);
       light.shadow.bias = -0.0003;
       light.shadow.normalBias = 0.02;
@@ -61,7 +62,12 @@ export function createLightRig(scene) {
       light.shadow.camera.far = 14;
       light.castShadow = true;
       group.add(light.target);
-      geometry = new THREE.CylinderGeometry(0.25, 0.12, 0.5).rotateX(-Math.PI / 2);
+      geometry = {
+        spot: () => new THREE.CylinderGeometry(0.25, 0.12, 0.5).rotateX(-Math.PI / 2),
+        area: () => new THREE.BoxGeometry(1.6, 1.6, 0.08),
+        // About 38 cm across: the head is 2 units tall, roughly 23 cm.
+        reflector: () => new THREE.CylinderGeometry(1.63, 1.63, 0.06, 64).rotateX(Math.PI / 2),
+      }[item.type]();
     } else if (item.type === 'point') {
       light = new THREE.PointLight(item.color, 1, 0, 2);
       light.shadow.mapSize.set(1024, 1024);
@@ -81,9 +87,6 @@ export function createLightRig(scene) {
       light.castShadow = true;
       group.add(light.target);
       geometry = new THREE.SphereGeometry(0.28, 24, 16);
-    } else {
-      light = new THREE.RectAreaLight(item.color, 1, 1.6, 1.6);
-      geometry = new THREE.BoxGeometry(1.6, 1.6, 0.08);
     }
     group.add(light);
 
@@ -100,13 +103,15 @@ export function createLightRig(scene) {
     // Directional lights get a bright lens on the emitting face and aim arrows (several parallel ones for the sun).
     let lens = null;
     let arrows = [];
-    if (item.type === 'spot' || item.type === 'area') {
-      lens = new THREE.Mesh(
-        item.type === 'spot' ? new THREE.CircleGeometry(0.25, 24) : new THREE.PlaneGeometry(1.5, 1.5),
-        new THREE.MeshBasicMaterial({ toneMapped: false, side: THREE.DoubleSide }),
-      );
+    if (item.type === 'spot' || item.type === 'area' || item.type === 'reflector') {
+      const lensGeometry = {
+        spot: () => new THREE.CircleGeometry(0.25, 24),
+        area: () => new THREE.PlaneGeometry(1.5, 1.5),
+        reflector: () => new THREE.CircleGeometry(1.58, 64),
+      }[item.type]();
+      lens = new THREE.Mesh(lensGeometry, new THREE.MeshBasicMaterial({ toneMapped: false, side: THREE.DoubleSide }));
       lens.rotation.y = Math.PI;
-      lens.position.z = item.type === 'spot' ? -0.26 : -0.05;
+      lens.position.z = { spot: -0.26, area: -0.05, reflector: -0.04 }[item.type];
       visual.add(lens);
     }
     if (item.type !== 'point') {
@@ -144,19 +149,24 @@ export function createLightRig(scene) {
     const dir = pos.clone().negate().normalize();
     dir.applyAxisAngle(UP, rad(item.pan));
     dir.applyAxisAngle(new THREE.Vector3().crossVectors(dir, UP).normalize(), rad(item.tilt));
+    item.aim = dir.clone();
 
     // Object3D.lookAt points +Z at the target, so aim at the mirrored point to make -Z follow dir.
     item.group.position.copy(pos);
     item.group.lookAt(pos.clone().sub(dir));
 
-    item.light.color.set(item.color);
-    item.light.intensity = item.intensity * POWER[item.type];
-    if (item.type === 'spot' || item.type === 'sun') item.light.target.position.set(0, 0, -d);
+    // A reflector has no output of its own; refreshReflectors() sets its colour and intensity.
+    if (item.type !== 'reflector') {
+      item.light.color.set(item.color);
+      item.light.intensity = item.intensity * POWER[item.type];
+    }
+    if (item.type !== 'point') item.light.target.position.set(0, 0, -d);
     // Slide the real light back along its rays; only the marker follows the distance slider.
     if (item.type === 'sun') item.light.position.set(0, 0, SUN_DISTANCE - d);
 
     // Point lights and the sun are one solid colour; other bodies stay dark so the lit face stands out.
-    item.visual.material.color.set(item.type === 'point' || item.type === 'sun' ? item.color : 0x3a3a46);
+    const bodyColor = item.type === 'reflector' ? 0x9aa0aa : 0x3a3a46;
+    item.visual.material.color.set(item.type === 'point' || item.type === 'sun' ? item.color : bodyColor);
     item.lens?.material.color.set(item.color);
     item.arrows.forEach((a) => {
       a.setColor(item.color);
@@ -168,12 +178,61 @@ export function createLightRig(scene) {
 
   const find = (id) => items.find((i) => i.id === id);
 
+  // Spot-like lights reach the reflector only inside their cone: [half-angle, penumbra].
+  const CONES = { spot: [0.5, 0.6], area: [0.9, 1] };
+  // Folds the reflector's area, reflectance and Lambertian spread into one tuning constant.
+  const REFLECTOR_GAIN = 10;
+
+  // A reflector re-emits what lands on its front face, so with no other light it stays dark.
+  function refreshReflectors() {
+    const sources = items.filter((i) => i.type !== 'reflector');
+    const toSource = new THREE.Vector3();
+
+    items.filter((i) => i.type === 'reflector').forEach((refl) => {
+      let total = 0;
+      const mix = new THREE.Color(0, 0, 0);
+      const sourceColor = new THREE.Color();
+
+      sources.forEach((src) => {
+        let irradiance;
+        if (src.type === 'sun') {
+          irradiance = src.intensity * POWER.sun * Math.max(0, -src.aim.dot(refl.aim));
+        } else {
+          toSource.copy(src.group.position).sub(refl.group.position);
+          const distance = toSource.length();
+          toSource.normalize();
+          irradiance = (src.intensity * POWER[src.type]) / (distance * distance) * Math.max(0, toSource.dot(refl.aim));
+          const cone = CONES[src.type];
+          if (cone) {
+            const [angle, penumbra] = cone;
+            const cosToReflector = -toSource.dot(src.aim);
+            irradiance *= THREE.MathUtils.smoothstep(cosToReflector, Math.cos(angle), Math.cos(angle * (1 - penumbra)));
+          }
+        }
+        sourceColor.set(src.color);
+        mix.r += sourceColor.r * irradiance;
+        mix.g += sourceColor.g * irradiance;
+        mix.b += sourceColor.b * irradiance;
+        total += irradiance;
+      });
+
+      // The bounced light takes the colour of what hits the reflector, tinted by its surface.
+      const tint = new THREE.Color(refl.color);
+      if (total > 0) mix.multiplyScalar(1 / total);
+      else mix.set(1, 1, 1);
+      refl.light.color.setRGB(tint.r * mix.r, tint.g * mix.g, tint.b * mix.b);
+      // The intensity slider is the surface's reflectivity; 5 is a standard white reflector.
+      refl.light.intensity = (refl.intensity / 5) * total * REFLECTOR_GAIN;
+    });
+  }
+
   const rig = {
     items,
     get selectedId() { return selectedId; },
     get selected() { return find(selectedId) ?? null; },
     onChange(fn) { listeners.add(fn); },
     hasSun: () => items.some((i) => i.type === 'sun'),
+    get gizmosVisible() { return gizmos; },
 
     // Restores the values the light had when it was added or loaded from a preset.
     reset(id) {
@@ -185,11 +244,15 @@ export function createLightRig(scene) {
       if (items.length >= MAX_LIGHTS) return null;
       if (params.type === 'sun' && rig.hasSun()) return null;
       const item = { ...DEFAULTS, ...params, id: ++counter };
-      item.name = `${TYPE_LABELS[item.type]} ${item.id}`;
-      const { type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = item;
-      item.initial = { type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt };
+      if (item.type === 'reflector' && !Object.values(REFLECTOR_COLORS).includes(item.color.toLowerCase())) item.color = REFLECTOR_COLORS.White;
+      item.name ??= item.type === 'reflector'
+        ? `Reflector ${items.filter((existing) => existing.type === 'reflector').length + 1}`
+        : `Light ${item.id}`;
+      const { name, type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = item;
+      item.initial = { name, type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt };
       items.push(item);
       build(item);
+      refreshReflectors();
       rig.select(item.id);
       return item;
     },
@@ -201,6 +264,7 @@ export function createLightRig(scene) {
       dispose(item);
       if (selectedId === id) selectedId = items.at(-1)?.id ?? null;
       items.forEach(apply);
+      refreshReflectors();
       emit('list');
     },
 
@@ -208,7 +272,7 @@ export function createLightRig(scene) {
       const src = find(id);
       if (!src) return null;
       const { type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = src;
-      return rig.add({ type, color, kelvin, intensity, azimuth: ((azimuth + 30 + 180) % 360) - 180, elevation, distance, pan, tilt });
+      return rig.add({ name: `${src.name} copy`, type, color, kelvin, intensity, azimuth: ((azimuth + 30 + 180) % 360) - 180, elevation, distance, pan, tilt });
     },
 
     select(id) {
@@ -223,13 +287,22 @@ export function createLightRig(scene) {
       // Only one sun is allowed.
       if (patch.type === 'sun' && patch.type !== item.type && rig.hasSun()) return;
       const typeChanged = patch.type && patch.type !== item.type;
-      Object.assign(item, patch);
+      const changes = { ...patch };
+      if (changes.type === 'reflector' && !Object.values(REFLECTOR_COLORS).includes((changes.color ?? item.color).toLowerCase())) {
+        changes.color = REFLECTOR_COLORS.White;
+        changes.kelvin = null;
+      }
+      if (item.type === 'reflector' && changes.color && !Object.values(REFLECTOR_COLORS).includes(changes.color.toLowerCase())) {
+        changes.color = REFLECTOR_COLORS.White;
+        changes.kelvin = null;
+      }
+      Object.assign(item, changes);
       if (typeChanged) {
-        item.name = `${TYPE_LABELS[item.type]} ${item.id}`;
         build(item);
       } else {
         apply(item);
       }
+      refreshReflectors();
       emit(typeChanged ? 'list' : 'item');
     },
 
@@ -258,7 +331,7 @@ export function createLightRig(scene) {
         v.copy(item.group.position).sub(cameraPosition);
         const along = v.dot(u);
         const lateral = v.addScaledVector(u, -along).length();
-        const radius = item.type === 'area' ? 1.3 : 0.9;
+        const radius = { area: 1.3, reflector: 1.8 }[item.type] ?? 0.9;
         const between = along > 0 && along < reach;
         const t = between ? THREE.MathUtils.smoothstep(lateral, radius * 0.6, radius * 1.4) : 1;
         const opacity = 0.12 + 0.88 * t;

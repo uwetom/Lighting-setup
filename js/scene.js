@@ -227,6 +227,11 @@ export async function createStage(container, statusEl) {
     headState,
     setHead,
     loadHeadModel,
+    // Renders a fresh frame and reads it back in the same task, so the drawing buffer is still valid.
+    captureImage: () => {
+      renderer.render(scene, camera);
+      return renderer.domElement.toDataURL('image/png');
+    },
     setBackground,
     // Coalesces slider drags into one rebuild per frame.
     setBackgroundRotation: (degrees) => {
