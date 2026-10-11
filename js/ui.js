@@ -236,7 +236,11 @@ export function initUI({ stage, rig }) {
       const swatch = document.createElement('span');
       swatch.className = 'swatch';
       swatch.style.background = item.color;
-      btn.append(swatch, typeIcon(item.type), `${item.name.trim() || 'Untitled'} (${TYPE_LABELS[item.type]})`);
+      const label = document.createElement('span');
+      label.className = 'light-label';
+      label.textContent = `${item.name.trim() || 'Untitled'} (${TYPE_LABELS[item.type]})`;
+      btn.title = label.textContent;
+      btn.append(swatch, typeIcon(item.type), label);
       btn.addEventListener('click', () => rig.select(item.id));
 
       const toggle = document.createElement('button');

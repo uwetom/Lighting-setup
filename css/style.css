@@ -26,6 +26,13 @@ html, body { margin: 0; height: 100%; background: #0b0b0e; color: #e6e6ea; font:
 h1 { font-size: 18px; margin: 0 0 8px; }
 h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #9a9aa6; margin: 0 0 8px; }
 section { padding: 12px 0; border-top: 1px solid #2a2a33; }
+.panel-accordion { border-top: 1px solid #2a2a33; }
+.panel-accordion > summary { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; color: #9a9aa6; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; list-style: none; }
+.panel-accordion > summary::-webkit-details-marker { display: none; }
+.panel-accordion > summary::after { content: '+'; color: #9a9aa6; font-size: 16px; line-height: 1; }
+.panel-accordion[open] > summary::after { content: '−'; }
+.panel-accordion > summary:focus-visible { outline: 2px solid #7aa7ff; outline-offset: 2px; border-radius: 4px; }
+.scene-settings-content > section:first-child { border-top: 0; padding-top: 0; }
 .muted { color: #9a9aa6; font-weight: normal; }
 .credit { margin: 8px 0 0; font-size: 12px; }
 .credit a { color: inherit; }
@@ -76,7 +83,8 @@ input[type=color] { width: 48px; height: 28px; padding: 2px; }
 .kelvin-entry input { width: 90px; padding: 3px 4px; font: inherit; color: inherit; background: #23232b; border: 1px solid #3a3a46; border-radius: 6px; }
 
 #light-list { display: flex; flex-direction: column; gap: 4px; }
-.light-item { display: flex; align-items: center; gap: 8px; text-align: left; }
+.light-item { display: flex; align-items: center; gap: 8px; min-width: 0; text-align: left; }
+.light-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .light-row { display: flex; gap: 4px; }
 .light-row .light-item { flex: 1; }
 .light-item.disabled { opacity: 0.55; }

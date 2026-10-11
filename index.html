@@ -61,7 +61,7 @@
           <button type="button" data-add="spot" title="Add spot light"><span>+</span>Spot</button>
           <button type="button" data-add="point" title="Add point light"><span>+</span>Point</button>
           <button type="button" data-add="area" title="Add softbox"><span>+</span>Softbox</button>
-          <button type="button" data-add="reflector" title="Add reflector (about 50 cm across; bounces light from your other lights)"><span>+</span>Reflector</button>
+          <button type="button" data-add="reflector" title="Add reflector (bounces light from your other lights)"><span>+</span>Reflector</button>
           <button type="button" data-add="sun" title="Add sun (only one allowed)"><span>+</span>Sun</button>
         </div>
         <div id="light-list"></div>
@@ -77,7 +77,7 @@
             <option value="spot">Spot</option>
             <option value="point">Point</option>
             <option value="area">Softbox</option>
-            <option value="reflector">Reflector (50 cm)</option>
+            <option value="reflector">Reflector</option>
             <option value="sun">Sun (parallel rays)</option>
             </select>
           </span>
@@ -118,27 +118,32 @@
         </div>
       </section>
 
-      <section>
-        <h2>Head</h2>
-        <select id="head-model"></select>
-        <p id="head-credit" class="muted credit"></p>
-      </section>
+      <details id="scene-settings" class="panel-accordion">
+        <summary>Scene setup</summary>
+        <div class="scene-settings-content">
+          <section>
+            <h2>Subject</h2>
+            <select id="head-model"></select>
+            <p id="head-credit" class="muted credit"></p>
+          </section>
 
-      <section>
-        <h2>Background</h2>
-        <select id="background"></select>
-        <label class="row">Rotation <input type="range" id="bg-rotation" min="-180" max="180" step="1" value="0" data-unit="&deg;" disabled><output></output></label>
-        <label class="row">Lighting <input type="range" id="env-intensity" min="0" max="3" step="0.05" value="1"><output></output></label>
-        <p class="muted credit">Backgrounds also light the subject. 360&deg; images from <a href="https://ambientcg.com" target="_blank" rel="noopener noreferrer">ambientCG</a> (CC0).</p>
-      </section>
+          <section>
+            <h2>Background</h2>
+            <select id="background"></select>
+            <label class="row">Rotation <input type="range" id="bg-rotation" min="-180" max="180" step="1" value="0" data-unit="&deg;" disabled><output></output></label>
+            <label class="row">Lighting <input type="range" id="env-intensity" min="0" max="3" step="0.05" value="1"><output></output></label>
+            <p class="muted credit">Backgrounds also light the subject. 360&deg; images from <a href="https://ambientcg.com" target="_blank" rel="noopener noreferrer">ambientCG</a> (CC0).</p>
+          </section>
 
-      <section>
-        <h2>Scene</h2>
-        <label class="row">Exposure <input type="range" id="exposure" min="0.2" max="3" step="0.05" value="1"><output></output></label>
-        <div class="btn-row">
-          <button type="button" id="camera-reset">Reset camera</button>
+          <section>
+            <h2>Scene</h2>
+            <label class="row">Exposure <input type="range" id="exposure" min="0.2" max="3" step="0.05" value="1"><output></output></label>
+            <div class="btn-row">
+              <button type="button" id="camera-reset">Reset camera</button>
+            </div>
+          </section>
         </div>
-      </section>
+      </details>
     </aside>
   </div>
   <script type="module" src="js/main.js"></script>
