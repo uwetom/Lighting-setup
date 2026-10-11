@@ -48,6 +48,7 @@ export async function createStage(container, statusEl) {
 
   let headMesh = null;
   let subject = 'head';
+  let modelYaw = 0;
   let loadToken = 0;
 
   // Fixed in the scene (not the rotating pivot) so the teapot turns on it.
@@ -186,6 +187,7 @@ export async function createStage(container, statusEl) {
       headMesh = mesh;
       headPivot.add(headMesh);
       subject = def.kind ?? 'head';
+      modelYaw = def.rotationY ?? 0;
       surface.visible = subject === 'teapot';
       surface.position.y = mesh.userData.floorY ?? 0;
       contact.visible = subject === 'teapot';
@@ -224,6 +226,7 @@ export async function createStage(container, statusEl) {
     renderer,
     get headMesh() { return headMesh; },
     get subject() { return subject; },
+    get modelYaw() { return modelYaw; },
     headState,
     setHead,
     loadHeadModel,

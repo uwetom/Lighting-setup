@@ -32,6 +32,8 @@ export function setupPlan({ stage, rig }) {
     dir.set(0, 0, -1).applyQuaternion(item.group.quaternion);
     const flat = Math.hypot(dir.x, dir.z);
     const reach = 1.3 * K;
+    const output = item.type === 'reflector' ? item.light.intensity / 30 : item.intensity / 10;
+    const strength = THREE.MathUtils.clamp(output, 0, 1);
 
     ctx.fillStyle = ctx.strokeStyle = item.color;
 
@@ -42,15 +44,16 @@ export function setupPlan({ stage, rig }) {
 
       if (item.type === 'spot') {
         // Cone length and opacity grow with intensity.
-        ctx.globalAlpha = 0.05 + item.intensity * 0.02;
+        ctx.globalAlpha = 0.04 + strength * 0.2;
         ctx.beginPath();
         ctx.moveTo(lx, ly);
-        ctx.arc(lx, ly, (1 + item.intensity * 0.6) * K, heading - 0.5, heading + 0.5);
+        ctx.arc(lx, ly, (1 + strength * 6) * K, heading - 0.5, heading + 0.5);
         ctx.fill();
         ctx.globalAlpha = 1;
       }
 
-      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.12 + strength * 0.88;
+      ctx.lineWidth = 1 + strength * 2;
       ctx.beginPath();
       ctx.moveTo(lx, ly);
       ctx.lineTo(lx + dx * reach, ly + dz * reach);
@@ -74,6 +77,7 @@ export function setupPlan({ stage, rig }) {
       if (item.type === 'reflector') {
         // Thin dished disc seen edge-on: a line with round rim caps.
         const half = 1.63 * K;
+        ctx.globalAlpha = 1;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(lx - dz * half, ly + dx * half);
@@ -86,12 +90,14 @@ export function setupPlan({ stage, rig }) {
         });
       } else if (item.type === 'area') {
         const half = 0.8 * K;
+        ctx.globalAlpha = 1;
         ctx.lineWidth = 5;
         ctx.beginPath();
         ctx.moveTo(lx - dz * half, ly + dx * half);
         ctx.lineTo(lx + dz * half, ly - dx * half);
         ctx.stroke();
       }
+      ctx.globalAlpha = 1;
     }
 
     if (item.type !== 'area' && item.type !== 'reflector') {
@@ -152,14 +158,6 @@ export function setupPlan({ stage, rig }) {
 
     ctx.strokeStyle = '#2f2f3a';
     ctx.lineWidth = 1;
-    ctx.fillStyle = '#6a6a76';
-    ctx.font = '9px system-ui, sans-serif';
-    [2, 4, 6, 8].forEach((r) => {
-      ctx.beginPath();
-      ctx.arc(CENTRE, CENTRE, r * K, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillText(r, CENTRE + 2, CENTRE - r * K - 2);
-    });
     ctx.beginPath();
     ctx.moveTo(CENTRE, 0);
     ctx.lineTo(CENTRE, SIZE);
@@ -189,7 +187,8 @@ export function setupPlan({ stage, rig }) {
     // Subject, rotated by yaw; local +y is the front.
     ctx.save();
     ctx.translate(CENTRE, CENTRE);
-    ctx.rotate(-rad(stage.headState.yaw));
+    const planYaw = stage.headState.yaw + stage.modelYaw + (stage.subject === 'teapot' ? 180 : 0);
+    ctx.rotate(-rad(planYaw));
     if (stage.subject === 'teapot') drawTeapot();
     else drawHead();
     ctx.restore();
