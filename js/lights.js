@@ -57,6 +57,7 @@ export function createLightRig(scene) {
       const angle = { spot: 0.5, area: 0.9, reflector: 1.1 }[item.type];
       light = new THREE.SpotLight(item.color, 1, 0, angle, soft ? 1 : 0.6, 2);
       light.shadow.mapSize.set(2048, 2048);
+      if (item.type === 'area' || item.type === 'reflector') light.shadow.radius = 6;
       light.shadow.bias = -0.0003;
       light.shadow.normalBias = 0.02;
       light.shadow.camera.near = 1;
