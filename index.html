@@ -34,6 +34,17 @@
       </button>
       <div id="plan">
         <canvas id="plan-canvas" aria-label="Top-down plan of the head and lights"></canvas>
+        <div id="plan-controls">
+          <button type="button" id="plan-smaller" title="Make top-down map smaller" aria-label="Make top-down map smaller">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+          </button>
+          <button type="button" id="plan-larger" title="Make top-down map larger" aria-label="Make top-down map larger">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>
+          </button>
+          <button type="button" id="plan-download" title="Download top-down map as PNG" aria-label="Download top-down map as PNG">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg>
+          </button>
+        </div>
         <button type="button" id="plan-toggle" title="Hide/show plan view" aria-label="Hide/show plan view" aria-controls="plan-canvas" aria-expanded="true">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="3"/>

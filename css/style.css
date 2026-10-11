@@ -9,9 +9,14 @@ html, body { margin: 0; height: 100%; background: #0b0b0e; color: #e6e6ea; font:
 #status, #hint { position: absolute; left: 12px; pointer-events: none; color: #9a9aa6; }
 #status { top: 18px; left: 100px; }
 #status.error { color: #ff8a80; }
-#plan { position: absolute; top: 12px; right: 12px; background: #16161bcc; border: 1px solid #2a2a33; border-radius: 8px; }
-#plan canvas { display: block; }
+#plan { position: absolute; top: 12px; right: 12px; z-index: 3; background: #16161bcc; border: 1px solid #2a2a33; border-radius: 8px; }
+#plan canvas { display: block; max-width: min(calc(100vw - 24px), calc(100vh - 24px)); max-height: min(calc(100vw - 24px), calc(100vh - 24px)); }
+#plan-controls { position: absolute; top: 4px; left: 4px; display: flex; gap: 3px; }
+#plan-controls button, #plan-toggle { display: grid; place-items: center; width: 28px; height: 28px; padding: 4px; background: #23232bcc; }
+#plan-controls button:disabled { opacity: 0.4; cursor: default; }
+#plan-controls button:hover:not(:disabled) { background: #2d2d38; }
 #plan.collapsed { width: 34px; height: 34px; }
+#plan.collapsed #plan-controls { display: none; }
 #plan-toggle, #icons-toggle, #snapshot { display: grid; place-items: center; padding: 4px; background: #23232bcc; }
 #snapshot { position: absolute; top: 12px; left: 56px; z-index: 2; padding: 6px; }
 #plan-toggle { position: absolute; top: 4px; right: 4px; }
