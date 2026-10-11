@@ -188,17 +188,40 @@ export function initUI({ stage, rig }) {
   const headModel = $('#head-model');
   HEADS.forEach((h, i) => headModel.add(new Option(h.name, i)));
   headModel.hidden = HEADS.length < 2;
-  headModel.addEventListener('change', () => {
+  headModel.addEventListener('change', async () => {
     const def = HEADS[headModel.value];
-    stage.loadHeadModel(def);
     showCredit(def);
+    await stage.loadHeadModel(def);
+    scatterRow.hidden = !stage.hasScattering;
   });
   showCredit(HEADS[0]);
 
+  // Skin scattering (translucent ears and nose) only exists for heads with baked thickness.
+  const scatterRow = $('#scatter-row');
+  const skinScatter = $('#skin-scatter');
+  const applyScatter = () => {
+    stage.setSkinScattering(Number(skinScatter.value));
+    showValue(skinScatter);
+  };
+  skinScatter.addEventListener('input', applyScatter);
+  applyScatter();
+  scatterRow.hidden = !stage.hasScattering;
+
   // Background (also lights the subject).
   const backgroundSelect = $('#background');
+  const bgRotation = $('#bg-rotation');
   BACKGROUNDS.forEach((b, i) => backgroundSelect.add(new Option(b.name, i)));
-  backgroundSelect.addEventListener('change', () => stage.setBackground(BACKGROUNDS[backgroundSelect.value]));
+  backgroundSelect.addEventListener('change', () => {
+    const def = BACKGROUNDS[backgroundSelect.value];
+    stage.setBackground(def);
+    // Only 360° images can be rotated.
+    bgRotation.disabled = !def.url;
+  });
+  bgRotation.addEventListener('input', () => {
+    stage.setBackgroundRotation(Number(bgRotation.value));
+    showValue(bgRotation);
+  });
+  showValue(bgRotation);
   const envIntensity = $('#env-intensity');
   const applyEnvIntensity = () => {
     stage.setEnvIntensity(Number(envIntensity.value));

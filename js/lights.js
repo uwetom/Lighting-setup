@@ -54,26 +54,29 @@ export function createLightRig(scene) {
 
     if (item.type === 'spot') {
       light = new THREE.SpotLight(item.color, 1, 0, 0.5, 0.6, 2);
-      light.shadow.mapSize.set(1024, 1024);
-      light.shadow.bias = -0.0005;
-      light.shadow.camera.near = 0.5;
-      light.shadow.camera.far = 20;
+      light.shadow.mapSize.set(2048, 2048);
+      light.shadow.bias = -0.0003;
+      light.shadow.normalBias = 0.02;
+      light.shadow.camera.near = 1;
+      light.shadow.camera.far = 14;
       light.castShadow = true;
       group.add(light.target);
       geometry = new THREE.CylinderGeometry(0.25, 0.12, 0.5).rotateX(-Math.PI / 2);
     } else if (item.type === 'point') {
       light = new THREE.PointLight(item.color, 1, 0, 2);
       light.shadow.mapSize.set(1024, 1024);
-      light.shadow.bias = -0.0005;
-      light.shadow.camera.near = 0.3;
-      light.shadow.camera.far = 20;
+      light.shadow.bias = -0.0003;
+      light.shadow.normalBias = 0.02;
+      light.shadow.camera.near = 0.5;
+      light.shadow.camera.far = 14;
       light.castShadow = true;
       geometry = new THREE.SphereGeometry(0.18, 24, 16);
     } else if (item.type === 'sun') {
       // THREE.DirectionalLight: parallel rays, so only its direction matters.
       light = new THREE.DirectionalLight(item.color, 1);
       light.shadow.mapSize.set(2048, 2048);
-      light.shadow.bias = -0.0005;
+      light.shadow.bias = -0.0003;
+      light.shadow.normalBias = 0.02;
       Object.assign(light.shadow.camera, { left: -3.5, right: 3.5, top: 3.5, bottom: -3.5, near: 1, far: 25 });
       light.castShadow = true;
       group.add(light.target);

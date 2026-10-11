@@ -82,6 +82,42 @@ export async function createStage(container, statusEl) {
   let envScale = 1;
   let envIntensity = 1;
   let backgroundToken = 0;
+  let sourceTexture = null;
+  let rotatedTexture = null;
+  let rotation = 0;
+  let rotateQueued = false;
+
+  // three r160 has no background rotation, so spin an equirect image by wrapping its columns.
+  function rotateTexture(src, degrees) {
+    const { data, width, height } = src.image;
+    const shift = Math.round((((degrees % 360) + 360) % 360) / 360 * width);
+    if (shift === 0) return src;
+    const out = new data.constructor(data.length);
+    const row = width * 4;
+    for (let y = 0; y < height; y++) {
+      const base = y * row;
+      out.set(data.subarray(base + shift * 4, base + row), base);
+      out.set(data.subarray(base, base + shift * 4), base + row - shift * 4);
+    }
+    const tex = new THREE.DataTexture(out, width, height, src.format, src.type);
+    tex.mapping = src.mapping;
+    tex.colorSpace = src.colorSpace;
+    tex.flipY = src.flipY;
+    tex.magFilter = tex.minFilter = THREE.LinearFilter;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  function showHdri() {
+    if (rotatedTexture) rotatedTexture.dispose();
+    rotatedTexture = rotateTexture(sourceTexture, rotation);
+    envTarget?.dispose();
+    envTarget = pmrem.fromEquirectangular(rotatedTexture);
+    scene.environment = envTarget.texture;
+    scene.background = rotatedTexture;
+    applyEnvIntensity();
+  }
 
   function applyEnvIntensity() {
     [headPivot, surface].forEach((root) => root.traverse((o) => {
@@ -105,10 +141,13 @@ export async function createStage(container, statusEl) {
           hdriCache.set(def.url, texture);
         }
         if (token !== backgroundToken) return;
-        background = hdriCache.get(def.url);
-        env = pmrem.fromEquirectangular(background);
+        sourceTexture = hdriCache.get(def.url);
+        envScale = def.envScale ?? 1;
+        showHdri();
         statusEl.hidden = true;
-      } else if (def.light) {
+        return;
+      }
+      if (def.light) {
         // A flat colour lights the subject evenly, like an infinity cove.
         const room = new THREE.Scene();
         room.background = background;
@@ -121,6 +160,9 @@ export async function createStage(container, statusEl) {
       return;
     }
 
+    sourceTexture = null;
+    if (rotatedTexture) rotatedTexture.dispose();
+    rotatedTexture = null;
     envTarget?.dispose();
     envTarget = env;
     envScale = def.envScale ?? 1;
@@ -137,6 +179,8 @@ export async function createStage(container, statusEl) {
     try {
       const mesh = await loadHead(def, gltfLoader);
       if (token !== loadToken) return;
+      // Cast shadows from both faces; thin or open scans otherwise let light leak onto the far side.
+      mesh.traverse((o) => [o.material].flat().forEach((m) => { if (m) m.shadowSide = THREE.DoubleSide; }));
       if (headMesh) {
         headPivot.remove(headMesh);
         headMesh.traverse((o) => {
@@ -185,10 +229,22 @@ export async function createStage(container, statusEl) {
     renderer,
     get headMesh() { return headMesh; },
     get subject() { return subject; },
+    get hasScattering() { return Boolean(headMesh?.userData.scattering); },
+    setSkinScattering: (strength) => { skin.sssAttenuation.value = strength * 0.6; },
     headState,
     setHead,
     loadHeadModel,
     setBackground,
+    // Coalesces slider drags into one rebuild per frame.
+    setBackgroundRotation: (degrees) => {
+      rotation = degrees;
+      if (!sourceTexture || rotateQueued) return;
+      rotateQueued = true;
+      requestAnimationFrame(() => {
+        rotateQueued = false;
+        if (sourceTexture) showHdri();
+      });
+    },
     setEnvIntensity: (v) => {
       envIntensity = v;
       applyEnvIntensity();
@@ -244,6 +300,21 @@ async function loadHead(def, loader) {
     clearcoatRoughness: 0.4,
   });
 
+  // Baked thickness (tools/make-thickness.mjs) drives the scattering; without it the head stays plain.
+  let scattering = false;
+  if (def.thickness) {
+    try {
+      const values = new Float32Array(await (await fetch(def.thickness)).arrayBuffer());
+      if (values.length === geometry.attributes.position.count) {
+        geometry.setAttribute('thickness', new THREE.BufferAttribute(values, 1));
+        addSkinScattering(material);
+        scattering = true;
+      }
+    } catch (err) {
+      console.warn(`Could not load ${def.thickness}; skipping skin scattering.`, err);
+    }
+  }
+
   geometry.computeBoundingBox();
   const box = geometry.boundingBox;
   const size = box.getSize(new THREE.Vector3());
@@ -254,7 +325,60 @@ async function loadHead(def, loader) {
   mesh.scale.setScalar(scale);
   mesh.position.copy(center).multiplyScalar(-scale);
   mesh.castShadow = mesh.receiveShadow = true;
+  mesh.userData.scattering = scattering;
   return mesh;
+}
+
+// Skin look: fake light transmission through thin parts (ears, nose), after GDC 2011
+// "Approximating Translucency" as used by the three.js subsurface scattering example.
+const skin = {
+  sssColor: { value: new THREE.Color(1, 0.35, 0.2) },
+  sssDistortion: { value: 0.3 },
+  sssPower: { value: 3 },
+  sssScale: { value: 4 },
+  sssAmbient: { value: 0 },
+  sssAttenuation: { value: 0.6 },
+};
+
+function addSkinScattering(material) {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, skin);
+
+    shader.vertexShader = `attribute float thickness;\nvarying float vThickness;\n${shader.vertexShader}`
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvThickness = thickness;');
+
+    // Scatter the light before its shadow is applied, otherwise the thin part shadows its own back-lit side.
+    const replaceAll = (text, find, replace) => text.split(find).join(replace);
+    let chunk = `vec3 sssLight = vec3( 0.0 );\n${THREE.ShaderChunk.lights_fragment_begin}`;
+    [
+      'getPointLightInfo( pointLight, geometryPosition, directLight );',
+      'getSpotLightInfo( spotLight, geometryPosition, directLight );',
+      'getDirectionalLightInfo( directionalLight, directLight );',
+    ].forEach((call) => { chunk = replaceAll(chunk, call, `${call}\n\t\tsssLight = directLight.color;`); });
+    const direct = 'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );';
+    chunk = replaceAll(chunk, direct, `${direct}\n\t\tRE_Direct_Scattering( directLight.direction, sssLight, material.diffuseColor, geometryNormal, geometryViewDir, reflectedLight );`);
+
+    const pars = `
+      varying float vThickness;
+      uniform vec3 sssColor;
+      uniform float sssDistortion;
+      uniform float sssPower;
+      uniform float sssScale;
+      uniform float sssAmbient;
+      uniform float sssAttenuation;
+      void RE_Direct_Scattering( const in vec3 lightDirection, const in vec3 lightColor, const in vec3 albedo, const in vec3 normal, const in vec3 viewDir, inout ReflectedLight reflectedLight ) {
+        float thin = 1.0 - smoothstep( 0.05, 0.45, vThickness );
+        vec3 halfway = normalize( lightDirection + normal * sssDistortion );
+        float scatter = pow( saturate( dot( viewDir, -halfway ) ), sssPower ) * sssScale;
+        reflectedLight.directDiffuse += ( scatter + sssAmbient ) * thin * sssColor * albedo * sssAttenuation * lightColor;
+      }
+    `;
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', `${pars}\nvoid main() {`)
+      .replace('#include <lights_fragment_begin>', chunk);
+  };
+  material.customProgramCacheKey = () => 'skin-sss';
 }
 
 // Loads a whole glb scene, scaled to a fixed height and centred on the pivot.

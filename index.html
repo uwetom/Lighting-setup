@@ -92,11 +92,13 @@
         <h2>Head</h2>
         <select id="head-model"></select>
         <p id="head-credit" class="muted credit"></p>
+        <label class="row" id="scatter-row">Skin glow <input type="range" id="skin-scatter" min="0" max="3" step="0.05" value="1"><output></output></label>
       </section>
 
       <section>
         <h2>Background</h2>
         <select id="background"></select>
+        <label class="row">Rotation <input type="range" id="bg-rotation" min="-180" max="180" step="1" value="0" data-unit="&deg;" disabled><output></output></label>
         <label class="row">Lighting <input type="range" id="env-intensity" min="0" max="3" step="0.05" value="1"><output></output></label>
         <p class="muted credit">Backgrounds also light the subject. 360&deg; images from <a href="https://ambientcg.com" target="_blank" rel="noopener noreferrer">ambientCG</a> (CC0).</p>
       </section>

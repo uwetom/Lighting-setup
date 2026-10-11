@@ -5,6 +5,7 @@ export const HEADS = [
     model: 'assets/head/LeePerrySmith.glb',
     map: 'assets/head/Map-COL.jpg',
     normalMap: 'assets/head/Infinite-Level_02_Tangent_SmoothUV.jpg',
+    thickness: 'assets/head/LeePerrySmith_thickness.bin',
     credit: { text: 'Head scan by Lee Perry-Smith (CC BY 3.0)', url: 'http://www.triplegangers.com' },
   },
   // rotationY (degrees) turns the model if its spout does not face the camera.
