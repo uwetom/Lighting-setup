@@ -183,8 +183,8 @@ export function createLightRig(scene) {
       if (params.type === 'sun' && rig.hasSun()) return null;
       const item = { ...DEFAULTS, ...params, id: ++counter };
       item.name = `${TYPE_LABELS[item.type]} ${item.id}`;
-      const { type, color, intensity, azimuth, elevation, distance, pan, tilt } = item;
-      item.initial = { type, color, intensity, azimuth, elevation, distance, pan, tilt };
+      const { type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = item;
+      item.initial = { type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt };
       items.push(item);
       build(item);
       rig.select(item.id);
@@ -204,8 +204,8 @@ export function createLightRig(scene) {
     duplicate(id) {
       const src = find(id);
       if (!src) return null;
-      const { type, color, intensity, azimuth, elevation, distance, pan, tilt } = src;
-      return rig.add({ type, color, intensity, azimuth: ((azimuth + 30 + 180) % 360) - 180, elevation, distance, pan, tilt });
+      const { type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = src;
+      return rig.add({ type, color, kelvin, intensity, azimuth: ((azimuth + 30 + 180) % 360) - 180, elevation, distance, pan, tilt });
     },
 
     select(id) {

@@ -18,9 +18,15 @@
   <div id="app">
     <main id="viewport">
       <div id="status">Loading head model...</div>
-      <button type="button" id="plan-toggle" aria-controls="plan">Plan view</button>
-      <div id="plan" hidden>
+      <div id="plan">
         <canvas id="plan-canvas" aria-label="Top-down plan of the head and lights"></canvas>
+        <button type="button" id="plan-toggle" title="Hide/show plan view" aria-label="Hide/show plan view" aria-controls="plan-canvas" aria-expanded="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+            <circle cx="12" cy="12" r="3"/>
+            <line class="slash" x1="3" y1="21" x2="21" y2="3"/>
+          </svg>
+        </button>
       </div>
       <div id="hint">drag a light to orbit it &middot; drag the background to move the camera &middot; scroll to zoom</div>
     </main>
@@ -56,7 +62,19 @@
             <option value="sun">Sun (parallel rays)</option>
           </select>
         </label>
-        <label class="row">Colour <input type="color" id="l-color"></label>
+        <div class="row">
+          <span>Colour</span>
+          <details id="l-picker" class="picker">
+            <summary><span class="swatch" id="l-swatch"></span><span id="l-colour-text"></span></summary>
+            <div class="picker-pop">
+              <input type="color" id="l-color" aria-label="Colour">
+              <div class="temp-title">Colour temperature <output id="l-kelvin-out"></output></div>
+              <input type="range" id="l-kelvin-range" min="1000" max="12000" step="100" aria-label="Colour temperature in kelvin">
+              <div class="chips" id="l-chips"></div>
+              <label class="kelvin-entry">Kelvin <input type="number" id="l-kelvin" min="1000" max="12000" step="100" placeholder="custom"></label>
+            </div>
+          </details>
+        </div>
         <label class="row">Intensity <input type="range" data-key="intensity" min="0" max="10" step="0.1"><output></output></label>
         <label class="row">Azimuth <input type="range" data-key="azimuth" min="-180" max="180" step="1" data-unit="°"><output></output></label>
         <label class="row">Elevation <input type="range" data-key="elevation" min="-80" max="85" step="1" data-unit="°"><output></output></label>
@@ -77,10 +95,19 @@
       </section>
 
       <section>
+        <h2>Background</h2>
+        <select id="background"></select>
+        <label class="row">Lighting <input type="range" id="env-intensity" min="0" max="3" step="0.05" value="1"><output></output></label>
+        <p class="muted credit">Backgrounds also light the subject. 360&deg; images from <a href="https://ambientcg.com" target="_blank" rel="noopener noreferrer">ambientCG</a> (CC0).</p>
+      </section>
+
+      <section>
         <h2>Scene</h2>
         <label class="row">Exposure <input type="range" id="exposure" min="0.2" max="3" step="0.05" value="1"><output></output></label>
-        <label class="row check"><input type="checkbox" id="gizmos" checked> Show light icons</label>
-        <div class="btn-row"><button type="button" id="camera-reset">Reset camera</button></div>
+        <div class="btn-row">
+          <button type="button" id="icons-toggle">Hide light icons</button>
+          <button type="button" id="camera-reset">Reset camera</button>
+        </div>
       </section>
     </aside>
   </div>

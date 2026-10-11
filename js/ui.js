@@ -1,6 +1,13 @@
 import { PRESETS } from './presets.js';
 import { MAX_LIGHTS, TYPE_LABELS } from './lights.js';
 import { HEADS } from './heads.js';
+import { kelvinToHex } from './color.js';
+import { BACKGROUNDS } from './backgrounds.js';
+
+const TEMPERATURES = [
+  ['Candle', 1900], ['Tungsten', 2700], ['Studio', 3200], ['Fluorescent', 4300],
+  ['Daylight', 5600], ['Overcast', 6500], ['Shade', 7500], ['Blue sky', 10000],
+];
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -34,7 +41,45 @@ export function initUI({ stage, rig }) {
   const sliders = [...inspector.querySelectorAll('input[data-key]')];
 
   typeSelect.addEventListener('change', () => rig.update(rig.selectedId, { type: typeSelect.value }));
-  colorInput.addEventListener('input', () => rig.update(rig.selectedId, { color: colorInput.value }));
+  colorInput.addEventListener('input', () => rig.update(rig.selectedId, { color: colorInput.value, kelvin: null }));
+
+  // Colour temperature lives inside the colour picker; picking a colour by hand clears the stored temperature.
+  const picker = $('#l-picker');
+  const swatch = $('#l-swatch');
+  const colourText = $('#l-colour-text');
+  const kelvinRange = $('#l-kelvin-range');
+  const kelvinInput = $('#l-kelvin');
+  const kelvinOut = $('#l-kelvin-out');
+  const applyKelvin = (kelvin) => rig.update(rig.selectedId, { color: kelvinToHex(kelvin), kelvin });
+
+  // The slider track previews the colour at each temperature.
+  kelvinRange.style.background = `linear-gradient(to right, ${
+    Array.from({ length: 12 }, (_, i) => kelvinToHex(1000 + i * 1000)).join(', ')})`;
+
+  $('#l-chips').append(...TEMPERATURES.map(([name, kelvin]) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.title = `${name} (${kelvin} K)`;
+    chip.textContent = name;
+    chip.addEventListener('click', () => applyKelvin(kelvin));
+    return chip;
+  }));
+
+  kelvinRange.addEventListener('input', () => applyKelvin(Number(kelvinRange.value)));
+  kelvinInput.addEventListener('change', () => {
+    const typed = Number(kelvinInput.value);
+    if (kelvinInput.value === '' || Number.isNaN(typed)) {
+      kelvinInput.value = rig.selected.kelvin ?? '';
+      return;
+    }
+    applyKelvin(Math.round(Math.min(12000, Math.max(1000, typed))));
+  });
+
+  // Close the popover when clicking elsewhere.
+  document.addEventListener('pointerdown', (e) => {
+    if (!picker.contains(e.target)) picker.open = false;
+  });
 
   // Each slider gets a number box so exact values can be typed; typed values are clamped to the slider range.
   const numbers = new Map(sliders.map((s) => {
@@ -78,6 +123,11 @@ export function initUI({ stage, rig }) {
     // Only one sun is allowed.
     typeSelect.querySelector('option[value=sun]').disabled = item.type !== 'sun' && rig.hasSun();
     colorInput.value = item.color;
+    swatch.style.background = item.color;
+    colourText.textContent = item.kelvin ? `${item.kelvin} K` : item.color;
+    kelvinInput.value = item.kelvin ?? '';
+    kelvinOut.textContent = item.kelvin ? `${item.kelvin} K` : 'custom colour';
+    if (item.kelvin) kelvinRange.value = item.kelvin;
     sliders.forEach((s) => {
       s.value = item[s.dataset.key];
       numbers.get(s).value = item[s.dataset.key];
@@ -145,6 +195,18 @@ export function initUI({ stage, rig }) {
   });
   showCredit(HEADS[0]);
 
+  // Background (also lights the subject).
+  const backgroundSelect = $('#background');
+  BACKGROUNDS.forEach((b, i) => backgroundSelect.add(new Option(b.name, i)));
+  backgroundSelect.addEventListener('change', () => stage.setBackground(BACKGROUNDS[backgroundSelect.value]));
+  const envIntensity = $('#env-intensity');
+  const applyEnvIntensity = () => {
+    stage.setEnvIntensity(Number(envIntensity.value));
+    showValue(envIntensity);
+  };
+  envIntensity.addEventListener('input', applyEnvIntensity);
+  applyEnvIntensity();
+
   // Scene controls.
   const exposure = $('#exposure');
   const applyExposure = () => {
@@ -153,7 +215,13 @@ export function initUI({ stage, rig }) {
   };
   exposure.addEventListener('input', applyExposure);
   applyExposure();
-  $('#gizmos').addEventListener('change', (e) => rig.setGizmos(e.target.checked));
+  const iconsToggle = $('#icons-toggle');
+  let iconsVisible = true;
+  iconsToggle.addEventListener('click', () => {
+    iconsVisible = !iconsVisible;
+    rig.setGizmos(iconsVisible);
+    iconsToggle.textContent = iconsVisible ? 'Hide light icons' : 'Show light icons';
+  });
   $('#camera-reset').addEventListener('click', stage.resetCamera);
 
   showPreset();

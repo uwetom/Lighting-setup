@@ -189,13 +189,13 @@ export function setupPlan({ stage, rig }) {
   };
 
   function setOpen(open) {
-    wrap.hidden = !open;
-    toggle.textContent = open ? 'Hide plan view' : 'Plan view';
+    canvas.hidden = !open;
+    wrap.classList.toggle('collapsed', !open);
     toggle.setAttribute('aria-expanded', open);
     cancelAnimationFrame(raf);
     if (open) tick();
   }
-  toggle.addEventListener('click', () => setOpen(wrap.hidden));
+  toggle.addEventListener('click', () => setOpen(canvas.hidden));
 
   const local = (e) => {
     const r = canvas.getBoundingClientRect();

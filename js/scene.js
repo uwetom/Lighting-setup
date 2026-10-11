@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/GLTFLoader.js';
 import { KTX2Loader } from 'three/addons/KTX2Loader.js';
+import { EXRLoader } from 'three/addons/EXRLoader.js';
 import { MeshoptDecoder } from 'three/addons/meshopt_decoder.module.js';
 import { TeapotGeometry } from 'three/addons/TeapotGeometry.js';
 
@@ -73,6 +74,61 @@ export async function createStage(container, statusEl) {
     .setKTX2Loader(new KTX2Loader().setTranscoderPath('vendor/three/addons/basis/').detectSupport(renderer))
     .setMeshoptDecoder(MeshoptDecoder);
 
+  // Backgrounds also light the subject: the background is prefiltered into scene.environment.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const exrLoader = new EXRLoader();
+  const hdriCache = new Map();
+  let envTarget = null;
+  let envScale = 1;
+  let envIntensity = 1;
+  let backgroundToken = 0;
+
+  function applyEnvIntensity() {
+    [headPivot, surface].forEach((root) => root.traverse((o) => {
+      [o.material].flat().forEach((m) => { if (m && 'envMapIntensity' in m) m.envMapIntensity = envIntensity * envScale; });
+    }));
+  }
+
+  async function setBackground(def) {
+    const token = ++backgroundToken;
+    let background = new THREE.Color(def.color ?? 0x0b0b0e);
+    let env = null;
+
+    try {
+      if (def.url) {
+        statusEl.classList.remove('error');
+        statusEl.textContent = 'Loading background...';
+        statusEl.hidden = false;
+        if (!hdriCache.has(def.url)) {
+          const texture = await exrLoader.loadAsync(def.url);
+          texture.mapping = THREE.EquirectangularReflectionMapping;
+          hdriCache.set(def.url, texture);
+        }
+        if (token !== backgroundToken) return;
+        background = hdriCache.get(def.url);
+        env = pmrem.fromEquirectangular(background);
+        statusEl.hidden = true;
+      } else if (def.light) {
+        // A flat colour lights the subject evenly, like an infinity cove.
+        const room = new THREE.Scene();
+        room.background = background;
+        env = pmrem.fromScene(room);
+      }
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Could not load the background image.';
+      statusEl.classList.add('error');
+      return;
+    }
+
+    envTarget?.dispose();
+    envTarget = env;
+    envScale = def.envScale ?? 1;
+    scene.environment = env?.texture ?? null;
+    scene.background = background;
+    applyEnvIntensity();
+  }
+
   async function loadHeadModel(def) {
     const token = ++loadToken;
     statusEl.classList.remove('error');
@@ -96,6 +152,7 @@ export async function createStage(container, statusEl) {
       contact.visible = subject === 'teapot';
       contact.position.y = surface.position.y + 0.002;
       contact.scale.setScalar((mesh.userData.footprint ?? 1) * 2.6);
+      applyEnvIntensity();
       setHead({});
       statusEl.hidden = true;
     } catch (err) {
@@ -131,6 +188,11 @@ export async function createStage(container, statusEl) {
     headState,
     setHead,
     loadHeadModel,
+    setBackground,
+    setEnvIntensity: (v) => {
+      envIntensity = v;
+      applyEnvIntensity();
+    },
     onFrame: (fn) => frameListeners.add(fn),
     onHeadChange: (fn) => headListeners.add(fn),
     setExposure: (v) => { renderer.toneMappingExposure = v; },
