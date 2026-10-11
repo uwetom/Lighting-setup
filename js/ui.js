@@ -232,12 +232,21 @@ export function initUI({ stage, rig }) {
 
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'light-item' + (item.id === rig.selectedId ? ' selected' : '');
+      btn.className = 'light-item' + (item.id === rig.selectedId ? ' selected' : '') + (!item.enabled ? ' disabled' : '');
       const swatch = document.createElement('span');
       swatch.className = 'swatch';
       swatch.style.background = item.color;
       btn.append(swatch, typeIcon(item.type), `${item.name.trim() || 'Untitled'} (${TYPE_LABELS[item.type]})`);
       btn.addEventListener('click', () => rig.select(item.id));
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'light-toggle';
+      toggle.textContent = item.enabled ? 'On' : 'Off';
+      toggle.setAttribute('aria-pressed', String(item.enabled));
+      toggle.title = `${item.enabled ? 'Turn off' : 'Turn on'} ${item.name}`;
+      toggle.setAttribute('aria-label', toggle.title);
+      toggle.addEventListener('click', () => rig.update(item.id, { enabled: !item.enabled }));
 
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -247,7 +256,7 @@ export function initUI({ stage, rig }) {
       remove.setAttribute('aria-label', remove.title);
       remove.addEventListener('click', () => rig.remove(item.id));
 
-      row.append(btn, remove);
+      row.append(btn, toggle, remove);
       return row;
     }));
     $('#light-count').textContent = `${rig.items.length}/${MAX_LIGHTS}`;

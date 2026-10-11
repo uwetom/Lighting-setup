@@ -13,6 +13,7 @@ const rad = THREE.MathUtils.degToRad;
 
 const DEFAULTS = {
   type: 'spot',
+  enabled: true,
   color: '#ffffff',
   intensity: 5,
   azimuth: 30,
@@ -158,7 +159,7 @@ export function createLightRig(scene) {
     // A reflector has no output of its own; refreshReflectors() sets its colour and intensity.
     if (item.type !== 'reflector') {
       item.light.color.set(item.color);
-      item.light.intensity = item.intensity * POWER[item.type];
+      item.light.intensity = item.enabled ? item.intensity * POWER[item.type] : 0;
     }
     if (item.type !== 'point') item.light.target.position.set(0, 0, -d);
     // Slide the real light back along its rays; only the marker follows the distance slider.
@@ -185,10 +186,14 @@ export function createLightRig(scene) {
 
   // A reflector re-emits what lands on its front face, so with no other light it stays dark.
   function refreshReflectors() {
-    const sources = items.filter((i) => i.type !== 'reflector');
+    const sources = items.filter((i) => i.type !== 'reflector' && i.enabled);
     const toSource = new THREE.Vector3();
 
     items.filter((i) => i.type === 'reflector').forEach((refl) => {
+      if (!refl.enabled) {
+        refl.light.intensity = 0;
+        return;
+      }
       let total = 0;
       const mix = new THREE.Color(0, 0, 0);
       const sourceColor = new THREE.Color();
@@ -248,8 +253,8 @@ export function createLightRig(scene) {
       item.name ??= item.type === 'reflector'
         ? `Reflector ${items.filter((existing) => existing.type === 'reflector').length + 1}`
         : `Light ${item.id}`;
-      const { name, type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = item;
-      item.initial = { name, type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt };
+      const { name, type, enabled, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = item;
+      item.initial = { name, type, enabled, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt };
       items.push(item);
       build(item);
       refreshReflectors();
@@ -271,8 +276,8 @@ export function createLightRig(scene) {
     duplicate(id) {
       const src = find(id);
       if (!src) return null;
-      const { type, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = src;
-      return rig.add({ name: `${src.name} copy`, type, color, kelvin, intensity, azimuth: ((azimuth + 30 + 180) % 360) - 180, elevation, distance, pan, tilt });
+      const { type, enabled, color, kelvin, intensity, azimuth, elevation, distance, pan, tilt } = src;
+      return rig.add({ name: `${src.name} copy`, type, enabled, color, kelvin, intensity, azimuth: ((azimuth + 30 + 180) % 360) - 180, elevation, distance, pan, tilt });
     },
 
     select(id) {
@@ -334,7 +339,7 @@ export function createLightRig(scene) {
         const radius = { area: 1.3, reflector: 1.8 }[item.type] ?? 0.9;
         const between = along > 0 && along < reach;
         const t = between ? THREE.MathUtils.smoothstep(lateral, radius * 0.6, radius * 1.4) : 1;
-        const opacity = 0.12 + 0.88 * t;
+        const opacity = t;
         item.fadeMaterials.forEach((m) => { m.opacity = opacity; });
       });
     },

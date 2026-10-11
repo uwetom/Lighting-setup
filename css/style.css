@@ -79,6 +79,9 @@ input[type=color] { width: 48px; height: 28px; padding: 2px; }
 .light-item { display: flex; align-items: center; gap: 8px; text-align: left; }
 .light-row { display: flex; gap: 4px; }
 .light-row .light-item { flex: 1; }
+.light-item.disabled { opacity: 0.55; }
+.light-toggle { width: 48px; padding: 4px; }
+.light-toggle[aria-pressed="false"] { color: #9a9aa6; }
 .light-remove { width: 32px; padding: 0; }
 .light-item.selected { border-color: #7aa7ff; background: #1f2a44; }
 .swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #fff4; }

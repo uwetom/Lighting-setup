@@ -32,7 +32,7 @@ export function setupPlan({ stage, rig }) {
     dir.set(0, 0, -1).applyQuaternion(item.group.quaternion);
     const flat = Math.hypot(dir.x, dir.z);
     const reach = 1.3 * K;
-    const output = item.type === 'reflector' ? item.light.intensity / 30 : item.intensity / 10;
+    const output = item.enabled ? (item.type === 'reflector' ? item.light.intensity / 30 : item.intensity / 10) : 0;
     const strength = THREE.MathUtils.clamp(output, 0, 1);
 
     ctx.fillStyle = ctx.strokeStyle = item.color;
