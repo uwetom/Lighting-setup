@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lighting Studio</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <main id="viewport">
+      <div id="status">Loading head model...</div>
+      <button type="button" id="plan-toggle" aria-controls="plan">Plan view</button>
+      <div id="plan" hidden>
+        <canvas id="plan-canvas" aria-label="Top-down plan of the head and lights"></canvas>
+      </div>
+      <div id="hint">drag a light to orbit it &middot; drag the background to move the camera &middot; scroll to zoom</div>
+    </main>
+
+    <aside id="panel">
+      <h1>Lighting Studio</h1>
+
+      <section>
+        <h2>Preset</h2>
+        <select id="preset"></select>
+        <div class="btn-row"><button type="button" id="preset-reset">Reset preset</button></div>
+        <p id="preset-desc" class="muted"></p>
+      </section>
+
+      <section>
+        <h2>Lights <span id="light-count" class="muted"></span></h2>
+        <div id="light-list"></div>
+        <div class="btn-row">
+          <button type="button" data-add="spot"><span>+</span>Spot</button>
+          <button type="button" data-add="point"><span>+</span>Point</button>
+          <button type="button" data-add="area"><span>+</span>Softbox</button>
+          <button type="button" data-add="sun"><span>+</span>Sun</button>
+        </div>
+      </section>
+
+      <section id="inspector" hidden>
+        <h2>Selected light</h2>
+        <label class="row">Type
+          <select id="l-type">
+            <option value="spot">Spot</option>
+            <option value="point">Point</option>
+            <option value="area">Softbox</option>
+            <option value="sun">Sun (parallel rays)</option>
+          </select>
+        </label>
+        <label class="row">Colour <input type="color" id="l-color"></label>
+        <label class="row">Intensity <input type="range" data-key="intensity" min="0" max="10" step="0.1"><output></output></label>
+        <label class="row">Azimuth <input type="range" data-key="azimuth" min="-180" max="180" step="1" data-unit="°"><output></output></label>
+        <label class="row">Elevation <input type="range" data-key="elevation" min="-80" max="85" step="1" data-unit="°"><output></output></label>
+        <label class="row">Distance <input type="range" data-key="distance" min="1.5" max="8" step="0.1"><output></output></label>
+        <label class="row" data-for="spot area sun">Pan <input type="range" data-key="pan" min="-60" max="60" step="1" data-unit="°"><output></output></label>
+        <label class="row" data-for="spot area sun">Tilt <input type="range" data-key="tilt" min="-60" max="60" step="1" data-unit="°"><output></output></label>
+        <div class="btn-row">
+          <button type="button" id="l-reset">Reset</button>
+          <button type="button" id="l-duplicate">Duplicate</button>
+          <button type="button" id="l-delete" class="danger">Delete</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Head</h2>
+        <select id="head-model"></select>
+        <p id="head-credit" class="muted credit"></p>
+      </section>
+
+      <section>
+        <h2>Scene</h2>
+        <label class="row">Exposure <input type="range" id="exposure" min="0.2" max="3" step="0.05" value="1"><output></output></label>
+        <label class="row check"><input type="checkbox" id="gizmos" checked> Show light icons</label>
+        <div class="btn-row"><button type="button" id="camera-reset">Reset camera</button></div>
+      </section>
+    </aside>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
