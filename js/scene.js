@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/GLTFLoader.js';
 import { EXRLoader } from 'three/addons/EXRLoader.js';
 import { TeapotGeometry } from 'three/addons/TeapotGeometry.js';
+import { renderRayTracedImage } from './raytrace.js';
 
 const HEAD_HEIGHT = 2;
 const CAMERA_HOME = new THREE.Vector3(0, 0.2, 7.5);
@@ -14,6 +15,8 @@ export async function createStage(container, statusEl) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   container.prepend(renderer.domElement);
+  const snapshotPreview = container.querySelector('#snapshot-preview');
+  const snapshotClearListeners = new Set();
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b0b0e);
@@ -23,7 +26,7 @@ export async function createStage(container, statusEl) {
   camera.position.copy(CAMERA_HOME);
 
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
+  controls.enableDamping = false;
   controls.enablePan = false;
   controls.minDistance = 3;
   controls.maxDistance = 40;
@@ -35,6 +38,7 @@ export async function createStage(container, statusEl) {
   const headState = { yaw: 0, pitch: 0, roll: 0 };
   const headListeners = new Set();
   const setHead = (patch) => {
+    clearSnapshotPreview();
     Object.assign(headState, patch);
     // Objects on a surface can only turn about the vertical axis.
     if (subject === 'teapot') headState.pitch = headState.roll = 0;
@@ -122,6 +126,7 @@ export async function createStage(container, statusEl) {
   }
 
   async function setBackground(def) {
+    clearSnapshotPreview();
     const token = ++backgroundToken;
     let background = new THREE.Color(def.color ?? 0x0b0b0e);
     let env = null;
@@ -168,6 +173,7 @@ export async function createStage(container, statusEl) {
   }
 
   async function loadHeadModel(def) {
+    clearSnapshotPreview();
     const token = ++loadToken;
     statusEl.classList.remove('error');
     statusEl.textContent = 'Loading model...';
@@ -213,11 +219,27 @@ export async function createStage(container, statusEl) {
   resize();
 
   const frameListeners = new Set();
-  renderer.setAnimationLoop(() => {
+  const renderFrame = () => {
     controls.update();
     frameListeners.forEach((fn) => fn());
     renderer.render(scene, camera);
-  });
+  };
+  renderer.setAnimationLoop(renderFrame);
+  controls.addEventListener('start', clearSnapshotPreview);
+
+  function showSnapshotPreview(url) {
+    snapshotPreview.src = url;
+    snapshotPreview.hidden = false;
+    renderer.setAnimationLoop(null);
+  }
+
+  function clearSnapshotPreview() {
+    if (snapshotPreview.hidden) return;
+    snapshotPreview.hidden = true;
+    snapshotPreview.removeAttribute('src');
+    renderer.setAnimationLoop(renderFrame);
+    snapshotClearListeners.forEach((fn) => fn());
+  }
 
   return {
     scene,
@@ -235,9 +257,21 @@ export async function createStage(container, statusEl) {
       renderer.render(scene, camera);
       return renderer.domElement.toDataURL('image/png');
     },
+    showSnapshotPreview,
+    clearSnapshotPreview,
+    onSnapshotClear(fn) { snapshotClearListeners.add(fn); },
+    captureRayTracedImage: async (rig, onProgress) => {
+      renderer.setAnimationLoop(null);
+      try {
+        return await renderRayTracedImage(renderer, scene, camera, rig, onProgress);
+      } finally {
+        renderer.setAnimationLoop(renderFrame);
+      }
+    },
     setBackground,
     // Coalesces slider drags into one rebuild per frame.
     setBackgroundRotation: (degrees) => {
+      clearSnapshotPreview();
       rotation = degrees;
       if (!sourceTexture || rotateQueued) return;
       rotateQueued = true;
@@ -247,13 +281,18 @@ export async function createStage(container, statusEl) {
       });
     },
     setEnvIntensity: (v) => {
+      clearSnapshotPreview();
       envIntensity = v;
       applyEnvIntensity();
     },
     onFrame: (fn) => frameListeners.add(fn),
     onHeadChange: (fn) => headListeners.add(fn),
-    setExposure: (v) => { renderer.toneMappingExposure = v; },
+    setExposure: (v) => {
+      clearSnapshotPreview();
+      renderer.toneMappingExposure = v;
+    },
     resetCamera: () => {
+      clearSnapshotPreview();
       camera.position.copy(CAMERA_HOME);
       controls.target.set(0, 0, 0);
     },

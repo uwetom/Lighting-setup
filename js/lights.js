@@ -41,7 +41,7 @@ export function createLightRig(scene) {
       o.geometry?.dispose();
       o.material?.dispose();
     });
-    (item.shadowLights ?? [item.light]).forEach((light) => light?.dispose?.());
+    item.light.dispose?.();
   }
 
   function build(item) {
@@ -50,14 +50,13 @@ export function createLightRig(scene) {
     const group = new THREE.Group();
     let light;
     let geometry;
-    let shadowLights = [];
 
     if (item.type === 'spot' || item.type === 'area' || item.type === 'reflector') {
       // Softboxes and reflectors are wide, feathered spots: RectAreaLight casts no shadows, so it lit the nose through the head.
       const soft = item.type !== 'spot';
       const angle = { spot: 0.5, area: 0.9, reflector: 1.1 }[item.type];
       light = new THREE.SpotLight(item.color, 1, 0, angle, soft ? 1 : 0.6, 2);
-      light.shadow.mapSize.set(item.type === 'area' ? 1024 : 2048, item.type === 'area' ? 1024 : 2048);
+      light.shadow.mapSize.set(2048, 2048);
       if (item.type === 'area' || item.type === 'reflector') light.shadow.radius = 12;
       light.shadow.bias = -0.0003;
       light.shadow.normalBias = 0.02;
@@ -65,25 +64,6 @@ export function createLightRig(scene) {
       light.shadow.camera.far = 14;
       light.castShadow = true;
       group.add(light.target);
-      shadowLights = [light];
-      if (item.type === 'area') {
-        const offsets = [[-0.45, -0.45], [0.45, -0.45], [-0.45, 0.45], [0.45, 0.45]];
-        light.position.set(offsets[0][0], offsets[0][1], 0);
-        offsets.slice(1).forEach(([x, y]) => {
-          const sample = new THREE.SpotLight(item.color, 1, 0, angle, 1, 2);
-          sample.position.set(x, y, 0);
-          sample.shadow.mapSize.set(1024, 1024);
-          sample.shadow.radius = 12;
-          sample.shadow.bias = -0.0003;
-          sample.shadow.normalBias = 0.02;
-          sample.shadow.camera.near = 1;
-          sample.shadow.camera.far = 14;
-          sample.castShadow = true;
-          group.add(sample.target);
-          group.add(sample);
-          shadowLights.push(sample);
-        });
-      }
       geometry = {
         spot: () => new THREE.CylinderGeometry(0.25, 0.12, 0.5).rotateX(-Math.PI / 2),
         area: () => new THREE.BoxGeometry(1.6, 1.6, 0.08),
@@ -98,7 +78,7 @@ export function createLightRig(scene) {
       light.shadow.camera.near = 0.5;
       light.shadow.camera.far = 14;
       light.castShadow = true;
-      geometry = new THREE.SphereGeometry(0.18, 24, 16);
+      geometry = new THREE.SphereGeometry(0.09, 24, 16);
     } else if (item.type === 'sun') {
       // THREE.DirectionalLight: parallel rays, so only its direction matters.
       light = new THREE.DirectionalLight(item.color, 1);
@@ -110,7 +90,6 @@ export function createLightRig(scene) {
       group.add(light.target);
       geometry = new THREE.SphereGeometry(0.28, 24, 16);
     }
-    if (shadowLights.length === 0) shadowLights = [light];
     group.add(light);
 
     const visual = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ toneMapped: false }));
@@ -148,7 +127,7 @@ export function createLightRig(scene) {
       });
     }
 
-    Object.assign(item, { group, light, shadowLights, visual, halo, lens, arrows });
+    Object.assign(item, { group, light, visual, halo, lens, arrows });
     // Every part of the marker fades together when it blocks the camera's view.
     item.fadeMaterials = [visual, halo, lens, ...arrows.flatMap((a) => [a.line, a.cone])]
       .filter(Boolean)
@@ -180,12 +159,10 @@ export function createLightRig(scene) {
 
     // A reflector has no output of its own; refreshReflectors() sets its colour and intensity.
     if (item.type !== 'reflector') {
-      item.shadowLights.forEach((light) => {
-        light.color.set(item.color);
-        light.intensity = item.enabled ? (item.intensity * POWER[item.type]) / item.shadowLights.length : 0;
-      });
+      item.light.color.set(item.color);
+      item.light.intensity = item.enabled ? item.intensity * POWER[item.type] : 0;
     }
-    if (item.type !== 'point') item.shadowLights.forEach((light) => light.target.position.set(0, 0, -d));
+    if (item.type !== 'point') item.light.target.position.set(0, 0, -d);
     // Slide the real light back along its rays; only the marker follows the distance slider.
     if (item.type === 'sun') item.light.position.set(0, 0, SUN_DISTANCE - d);
 

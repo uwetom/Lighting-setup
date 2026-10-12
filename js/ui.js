@@ -3,6 +3,7 @@ import { MAX_LIGHTS, TYPE_LABELS, REFLECTOR_COLORS } from './lights.js';
 import { HEADS } from './heads.js';
 import { kelvinToHex } from './color.js';
 import { BACKGROUNDS } from './backgrounds.js';
+import { ICON_SHAPES } from './icons.js';
 
 const TEMPERATURES = [
   ['Candle', 1900], ['Tungsten', 2700], ['Studio', 3200], ['Fluorescent', 4300],
@@ -10,15 +11,6 @@ const TEMPERATURES = [
 ];
 
 const $ = (sel) => document.querySelector(sel);
-
-// Small line icons so each light's type is clear at a glance.
-const ICON_SHAPES = {
-  spot: '<path d="M8 4h8l3 6H5z"/><path d="M7 14l-2 6M12 14v6M17 14l2 6"/>',
-  point: '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
-  area: '<path d="M4 7h16v10H4z"/><path d="M9.3 7v10M14.7 7v10"/>',
-  reflector: '<circle cx="12" cy="10" r="7"/><path d="M12 17v4M8 21h8"/>',
-  sun: '<circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>',
-};
 
 // Returns the preset the current lights roughly match (same lights, within a small tolerance), if any.
 function matchingPreset(items) {
@@ -330,24 +322,66 @@ export function initUI({ stage, rig }) {
   const iconsToggle = $('#icons-toggle');
   let iconsVisible = true;
   iconsToggle.addEventListener('click', () => {
+    stage.clearSnapshotPreview();
     iconsVisible = !iconsVisible;
     rig.setGizmos(iconsVisible);
     iconsToggle.setAttribute('aria-pressed', iconsVisible);
   });
   $('#camera-reset').addEventListener('click', stage.resetCamera);
 
-  // Light icons are hidden just for the capture, then restored.
-  $('#snapshot').addEventListener('click', () => {
-    const wereVisible = rig.gizmosVisible;
-    rig.setGizmos(false);
-    const url = stage.captureImage();
-    rig.setGizmos(wereVisible);
+  let snapshotUrl = null;
+  let snapshotKind = 'standard';
+  const raytraceButton = $('#raytrace-snapshot');
+  const status = $('#status');
+  const saveButton = $('#save-snapshot');
+  const showSnapshot = (url, kind) => {
+    snapshotUrl = url;
+    snapshotKind = kind;
+    stage.showSnapshotPreview(url);
+    saveButton.disabled = false;
+    status.hidden = true;
+  };
+  stage.onSnapshotClear(() => {
+    snapshotUrl = null;
+    saveButton.disabled = true;
+    status.hidden = true;
+  });
+  const snapshotButton = $('#snapshot');
+  saveButton.addEventListener('click', () => {
+    if (!snapshotUrl) return;
     const preset = matchingPreset(rig.items);
     const base = preset ? preset.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : 'lighting-setup';
+    const name = snapshotKind === 'ray-traced' ? `${base}-ray-traced` : base;
     const link = document.createElement('a');
-    link.href = url;
-    link.download = nextSnapshotName(base);
+    link.href = snapshotUrl;
+    link.download = nextSnapshotName(name);
+    document.body.append(link);
     link.click();
+    link.remove();
+  });
+
+  snapshotButton.addEventListener('click', async () => {
+    snapshotButton.disabled = true;
+    snapshotButton.setAttribute('aria-busy', 'true');
+    saveButton.disabled = true;
+    status.classList.remove('error');
+    status.hidden = false;
+    status.textContent = 'Preparing ray-traced snapshot...';
+    try {
+      const url = await stage.captureRayTracedImage(rig, (sample, total) => {
+        if (sample === 1 || sample === total || sample % 4 === 0) {
+          status.textContent = `Ray-tracing snapshot: ${sample}/${total} samples`;
+        }
+      });
+      showSnapshot(url, 'ray-traced');
+    } catch (error) {
+      status.textContent = `Ray-traced snapshot failed: ${error.message}`;
+      status.classList.add('error');
+    } finally {
+      snapshotButton.disabled = false;
+      snapshotButton.removeAttribute('aria-busy');
+      saveButton.disabled = !snapshotUrl;
+    }
   });
 
   showPreset();

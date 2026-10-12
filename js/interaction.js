@@ -17,7 +17,12 @@ export function setupInteraction({ stage, rig }) {
     raycaster.setFromCamera(ndc, stage.camera);
   };
 
-  const pickLight = () => raycaster.intersectObjects(rig.pickables(), false)[0];
+  const pickLight = () => {
+    const lightHit = raycaster.intersectObjects(rig.pickables(), false)[0];
+    if (!lightHit) return null;
+    const modelHit = stage.headMesh && raycaster.intersectObject(stage.headMesh, true)[0];
+    return modelHit && modelHit.distance < lightHit.distance ? null : lightHit;
+  };
 
   // Capture phase so we can claim the drag before OrbitControls starts its own.
   canvas.addEventListener('pointerdown', (e) => {

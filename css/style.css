@@ -5,27 +5,35 @@ html, body { margin: 0; height: 100%; background: #0b0b0e; color: #e6e6ea; font:
 #app { display: flex; height: 100%; }
 #viewport { position: relative; flex: 1; min-width: 0; }
 #viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+#snapshot-preview { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
 #status, #hint { position: absolute; left: 12px; pointer-events: none; color: #9a9aa6; }
-#status { top: 18px; left: 100px; }
+#status { top: 18px; left: 190px; z-index: 2; }
 #status.error { color: #ff8a80; }
 #plan { position: absolute; top: 12px; right: 12px; z-index: 3; background: #16161bcc; border: 1px solid #2a2a33; border-radius: 8px; }
-#plan canvas { display: block; max-width: min(calc(100vw - 24px), calc(100vh - 24px)); max-height: min(calc(100vw - 24px), calc(100vh - 24px)); }
-#plan-controls { position: absolute; top: 4px; left: 4px; display: flex; gap: 3px; }
-#plan-controls button, #plan-toggle { display: grid; place-items: center; width: 28px; height: 28px; padding: 4px; background: #23232bcc; }
-#plan-controls button:disabled { opacity: 0.4; cursor: default; }
-#plan-controls button:hover:not(:disabled) { background: #2d2d38; }
+#plan-frame { position: relative; width: fit-content; }
+#plan canvas { display: block; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); }
+#plan-controls { position: absolute; top: 4px; left: 4px; display: flex; gap: 3px; z-index: 1; }
+#plan-controls button { display: grid; place-items: center; width: 28px; height: 28px; padding: 4px; background: #23232bcc; }
+#plan-resize { position: absolute; bottom: 2px; left: 2px; display: grid; place-items: center; width: 24px; height: 24px; color: #b7b7c1; cursor: nesw-resize; touch-action: none; }
+#plan-resize:hover, #plan-resize:focus-visible { color: #fff; }
+#plan-resize:focus-visible { outline: 2px solid #7aa7ff; outline-offset: 1px; }
+#plan-resize svg { pointer-events: none; }
 #plan.collapsed { width: 34px; height: 34px; }
-#plan.collapsed #plan-controls { display: none; }
-#plan-toggle, #icons-toggle, #snapshot { display: grid; place-items: center; padding: 4px; background: #23232bcc; }
+#plan.collapsed #plan-frame, #plan.collapsed #plan-download, #plan.collapsed #plan-fullscreen { display: none; }
+#plan-fullscreen[aria-pressed=true] { border-color: #7aa7ff; }
+#plan:fullscreen, #plan.fullscreen-fallback { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; width: 100vw; height: 100vh; border: 0; border-radius: 0; background: #16161b; }
+#plan-toggle, #icons-toggle, #snapshot, #save-snapshot { display: grid; place-items: center; padding: 4px; background: #23232bcc; }
 #snapshot { position: absolute; top: 12px; left: 56px; z-index: 2; padding: 6px; }
-#plan-toggle { position: absolute; top: 4px; right: 4px; }
+#snapshot:disabled { opacity: 0.5; cursor: progress; }
+#save-snapshot { position: absolute; top: 12px; left: 100px; z-index: 2; padding: 6px; }
+#save-snapshot:disabled { opacity: 0.4; cursor: default; }
 #icons-toggle { position: absolute; top: 12px; bottom: auto; left: 12px; z-index: 2; padding: 6px; }
 #plan-toggle[aria-expanded=true] { border-color: #7aa7ff; }
 #plan-toggle[aria-expanded=false] { opacity: 0.6; }
 #icons-toggle[aria-pressed=true] { border-color: #7aa7ff; }
 #icons-toggle[aria-pressed=false] { opacity: 0.55; }
-#hint { bottom: 12px; font-size: 12px; }
+#hint { bottom: 12px; z-index: 2; font-size: 12px; }
 
 #panel { width: 320px; padding: 12px 16px; overflow-y: auto; background: #16161b; border-left: 1px solid #2a2a33; }
 h1 { font-size: 18px; margin: 0 0 8px; }
